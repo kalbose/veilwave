@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Audio Cipher Engine</title>
+  <style>
+    :root { font-family: system-ui, sans-serif; color: #e8e8e8; background: #121418; }
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-weight: 600; letter-spacing: 0.02em; }
+    section { margin: 1.5rem 0; padding: 1rem 1.25rem; background: #1a1d24; border-radius: 12px; border: 1px solid #2a2f3a; }
+    label { display: block; margin: 0.5rem 0 0.25rem; font-size: 0.9rem; color: #b7c0d4; }
+    input[type="file"], input[type="text"], input[type="password"] {
+      width: 100%; padding: 0.55rem 0.65rem; border-radius: 8px; border: 1px solid #2f3542;
+      background: #101218; color: #e8e8e8;
+    }
+    button {
+      margin-top: 0.75rem; margin-right: 0.5rem; padding: 0.55rem 1rem; border: none; border-radius: 8px;
+      background: #3b82f6; color: white; font-weight: 600; cursor: pointer;
+    }
+    button.secondary { background: #334155; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .hint { font-size: 0.85rem; color: #9aa7bd; margin-top: 0.5rem; line-height: 1.4; }
+    audio { width: 100%; margin-top: 0.75rem; }
+    #log { white-space: pre-wrap; font-family: ui-monospace, monospace; font-size: 0.8rem; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <h1>Audio Cipher Engine</h1>
+  <p class="hint">Запись с микрофона → WAV → «коверканье» на сервере. Тот же файл + то же слово даёт побитовое восстановление.</p>
+
+  <section>
+    <h2>Запись</h2>
+    <div class="row">
+      <button id="btnRecStart" type="button">Начать запись</button>
+      <button id="btnRecStop" class="secondary" type="button" disabled>Стоп</button>
+    </div>
+    <audio id="player" controls></audio>
+    <p id="log"></p>
+  </section>
+
+  <section>
+    <h2>Коверкание (scramble)</h2>
+    <label for="pass1">Кодовое слово</label>
+    <input id="pass1" type="password" autocomplete="off" placeholder="секрет" />
+    <label for="file1">Файл WAV (или запись выше)</label>
+    <input id="file1" type="file" accept="audio/wav,.wav,audio/*" />
+    <button id="btnScramble" type="button">Отправить и скачать искажённый WAV</button>
+    <p class="hint">На клиенте формируется 16-bit PCM WAV (моно, 44.1 kHz) из MediaRecorder, без внешних CDN.</p>
+  </section>
+
+  <section>
+    <h2>Восстановление (descramble)</h2>
+    <label for="pass2">То же кодовое слово</label>
+    <input id="pass2" type="password" autocomplete="off" />
+    <label for="file2">Искажённый WAV с сервера</label>
+    <input id="file2" type="file" accept="audio/wav,.wav" />
+    <button id="btnDescramble" class="secondary" type="button">Восстановить и скачать</button>
+  </section>
+
+  <script src="/recorder.js" defer></script>
+</body>
+</html>
