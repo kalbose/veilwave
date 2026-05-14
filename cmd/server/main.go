@@ -56,7 +56,7 @@ func run(ctx context.Context) error {
 	g, gctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
-		slog.Info("http listening", "addr", cfg.HTTPAddr)
+		slog.Info("veilwave listening", "addr", cfg.HTTPAddr)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("http listen: %w", err)
 		}

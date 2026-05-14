@@ -105,7 +105,7 @@
         const recordedWavBlob = await audioBufferToMonoWav(webm);
         const url = URL.createObjectURL(recordedWavBlob);
         player.src = url;
-        log('Готово: WAV 16-bit mono', SAMPLE_RATE, 'Hz. Файл подставлен в поле scramble.');
+        log('Готово: WAV 16-bit mono', SAMPLE_RATE, 'Hz → файл подставлен в «Завеса».');
         try {
           const dt = new DataTransfer();
           dt.items.add(new File([recordedWavBlob], 'recording.wav', { type: 'audio/wav' }));
@@ -160,8 +160,8 @@
     btnScramble.disabled = true;
     try {
       const out = await postTransform('/api/scramble', f, pass);
-      download(out, 'scrambled.wav');
-      log('Скачан scrambled.wav');
+      download(out, 'veilwave-shroud.wav');
+      log('Скачан veilwave-shroud.wav');
     } catch (e) {
       log('Ошибка:', e.message || e);
     } finally {
@@ -179,8 +179,8 @@
     btnDescramble.disabled = true;
     try {
       const out = await postTransform('/api/descramble', f, pass);
-      download(out, 'restored.wav');
-      log('Скачан restored.wav — сравните с оригиналом побитово.');
+      download(out, 'veilwave-clear.wav');
+      log('Скачан veilwave-clear.wav — должен совпасть с исходным побитово.');
     } catch (e) {
       log('Ошибка:', e.message || e);
     } finally {

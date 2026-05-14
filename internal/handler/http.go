@@ -108,9 +108,9 @@ func (h *Handler) handleTransform(w http.ResponseWriter, r *http.Request, mode s
 	var suffix string
 	switch mode {
 	case "scramble":
-		suffix = ".scrambled.wav"
+		suffix = ".veilwave-shroud.wav"
 	case "descramble":
-		suffix = ".restored.wav"
+		suffix = ".veilwave-clear.wav"
 	default:
 		suffix = ".out.wav"
 	}
