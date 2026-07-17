@@ -3,346 +3,142 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0c0618" />
-  <title>Veilwave — обратимый аудио-шифр</title>
-  <style>
-    :root {
-      --bg0: #07040f;
-      --bg1: #12081f;
-      --violet: #7c3aed;
-      --violet-dim: #5b21b6;
-      --cyan: #22d3ee;
-      --mint: #34d399;
-      --text: #f4f4f8;
-      --muted: #9ca3c4;
-      --card: rgba(18, 14, 32, 0.72);
-      --stroke: rgba(124, 58, 237, 0.35);
-      --radius: 18px;
-      --font: "Segoe UI", "Inter", system-ui, -apple-system, sans-serif;
-      --mono: ui-monospace, "Cascadia Code", "Consolas", monospace;
-    }
-
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      font-family: var(--font);
-      color: var(--text);
-      background: var(--bg0);
-      overflow-x: hidden;
-    }
-
-    /* Фон: мягкие «пятна» + сетка, без картинок и CDN */
-    .bg {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      background:
-        radial-gradient(ellipse 80% 50% at 20% -10%, rgba(124, 58, 237, 0.45), transparent 55%),
-        radial-gradient(ellipse 70% 40% at 100% 30%, rgba(34, 211, 238, 0.12), transparent 50%),
-        radial-gradient(ellipse 60% 50% at 50% 100%, rgba(52, 211, 153, 0.08), transparent 45%),
-        linear-gradient(165deg, var(--bg0), var(--bg1) 45%, #0a0614);
-    }
-    .bg::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-      background-size: 48px 48px;
-      mask-image: radial-gradient(ellipse 75% 60% at 50% 40%, black, transparent);
-      pointer-events: none;
-      opacity: 0.9;
-    }
-
-    .wrap {
-      position: relative;
-      z-index: 1;
-      max-width: 880px;
-      margin: 0 auto;
-      padding: clamp(1.5rem, 4vw, 2.75rem) 1.25rem 3rem;
-    }
-
-    header {
-      margin-bottom: 2rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 1.25rem;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-    .mark {
-      width: 52px;
-      height: 52px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--violet), #a855f7 55%, var(--cyan));
-      box-shadow:
-        0 0 0 1px rgba(255,255,255,0.12) inset,
-        0 12px 40px rgba(124, 58, 237, 0.35);
-      display: grid;
-      place-items: center;
-      flex-shrink: 0;
-      position: relative;
-      overflow: hidden;
-    }
-    .mark::before,
-    .mark::after {
-      content: "";
-      position: absolute;
-      width: 140%;
-      height: 22%;
-      border-radius: 999px;
-      border: 2px solid rgba(255,255,255,0.35);
-      left: -20%;
-      opacity: 0.85;
-      animation: drift 7s ease-in-out infinite;
-    }
-    .mark::after {
-      top: 55%;
-      animation-delay: -3.5s;
-      opacity: 0.55;
-    }
-    @keyframes drift {
-      0%, 100% { transform: translateY(0) scaleX(1); }
-      50% { transform: translateY(4px) scaleX(0.92); }
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(1.75rem, 4vw, 2.35rem);
-      font-weight: 700;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
-    }
-    h1 span {
-      background: linear-gradient(90deg, #fff, #c4b5fd 40%, var(--cyan));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-    }
-
-    .tagline {
-      margin: 0.35rem 0 0;
-      font-size: 0.95rem;
-      color: var(--muted);
-      max-width: 26rem;
-      line-height: 1.45;
-    }
-
-    .badge {
-      font-size: 0.72rem;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: var(--cyan);
-      border: 1px solid rgba(34, 211, 238, 0.35);
-      padding: 0.35rem 0.6rem;
-      border-radius: 999px;
-      background: rgba(34, 211, 238, 0.06);
-      white-space: nowrap;
-      height: fit-content;
-      align-self: flex-start;
-    }
-
-    .cards {
-      display: flex;
-      flex-direction: column;
-      gap: 1.15rem;
-    }
-
-    section.card {
-      margin: 0;
-      padding: 1.35rem 1.5rem 1.45rem;
-      border-radius: var(--radius);
-      background: var(--card);
-      border: 1px solid var(--stroke);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
-    }
-
-    section.card h2 {
-      margin: 0 0 0.9rem;
-      font-size: 1rem;
-      font-weight: 650;
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    section.card h2 .num {
-      font-size: 0.68rem;
-      font-weight: 700;
-      color: var(--bg0);
-      background: linear-gradient(135deg, var(--cyan), var(--mint));
-      padding: 0.2rem 0.45rem;
-      border-radius: 6px;
-      letter-spacing: 0.02em;
-    }
-
-    label {
-      display: block;
-      margin: 0.75rem 0 0.35rem;
-      font-size: 0.82rem;
-      font-weight: 550;
-      color: var(--muted);
-      letter-spacing: 0.02em;
-    }
-    label:first-of-type { margin-top: 0; }
-
-    input[type="file"],
-    input[type="password"],
-    input[type="text"] {
-      width: 100%;
-      padding: 0.65rem 0.85rem;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(6, 4, 14, 0.65);
-      color: var(--text);
-      font-size: 0.95rem;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    input:focus {
-      border-color: rgba(124, 58, 237, 0.65);
-      box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.2);
-    }
-    input::placeholder { color: #6b7280; }
-
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.6rem;
-      align-items: center;
-      margin-top: 0.85rem;
-    }
-
-    button {
-      border: none;
-      border-radius: 12px;
-      padding: 0.65rem 1.15rem;
-      font-weight: 650;
-      font-size: 0.9rem;
-      cursor: pointer;
-      font-family: inherit;
-      transition: transform 0.12s, filter 0.12s, opacity 0.12s;
-    }
-    button:active:not(:disabled) { transform: scale(0.98); }
-    button:disabled { opacity: 0.45; cursor: not-allowed; }
-
-    .btn-primary {
-      color: #0c0618;
-      background: linear-gradient(135deg, var(--cyan), #a78bfa);
-      box-shadow: 0 8px 24px rgba(34, 211, 238, 0.25);
-    }
-    .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
-
-    .btn-ghost {
-      color: var(--text);
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.12);
-    }
-    .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
-
-    .hint {
-      font-size: 0.82rem;
-      color: var(--muted);
-      margin: 0.65rem 0 0;
-      line-height: 1.5;
-    }
-
-    audio {
-      width: 100%;
-      margin-top: 0.85rem;
-      border-radius: 12px;
-      filter: saturate(1.05);
-    }
-
-    #log {
-      white-space: pre-wrap;
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      color: #a5b4fc;
-      margin: 0.75rem 0 0;
-      min-height: 1.25rem;
-    }
-
-    footer {
-      margin-top: 2.25rem;
-      padding-top: 1.25rem;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      font-size: 0.78rem;
-      color: #6b7280;
-      text-align: center;
-      line-height: 1.5;
-    }
-    footer strong { color: var(--muted); font-weight: 600; }
-  </style>
+  <meta name="description" content="Veilwave — обратимое lossless-скрытие звука в WAV" />
+  <meta name="theme-color" content="#05030c" />
+  <title>Veilwave</title>
+  <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div class="bg" aria-hidden="true"></div>
+  <div class="bg" aria-hidden="true"><div class="bg-orb a"></div><div class="bg-orb b"></div></div>
+
+  <div id="overlay" aria-hidden="true">
+    <div class="overlay-box">
+      <div class="spinner"></div>
+      <p id="overlayText">Обработка…</p>
+      <p class="overlay-sub" id="overlaySub"></p>
+    </div>
+  </div>
+  <div id="toasts" aria-live="polite"></div>
+
   <div class="wrap">
     <header>
-      <div>
-        <div class="brand">
-          <div class="mark" role="img" aria-label="Veilwave"></div>
-          <div>
-            <h1><span>Veilwave</span></h1>
-            <p class="tagline">Навесь вуаль на волну: звук становится шумом. Тот же файл и ключ — и сигнал возвращается <strong style="color:#c4b5fd;font-weight:600">побитово</strong>.</p>
-          </div>
+      <div class="brand">
+        <div class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M2 12c2.5-4 6-6 10-6s7.5 2 10 6c-2.5 4-6 6-10 6s-7.5-2-10-6z" stroke="rgba(255,255,255,0.45)" stroke-width="1.2"/><path d="M4 12c2-2.5 4.5-3.5 8-3.5s6 1 8 3.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          <h1><span>Veilwave</span></h1>
+          <p class="tagline">Вуаль на волну — для чужих шум, для тебя <em>побитовый</em> возврат.</p>
         </div>
       </div>
-      <div class="badge">lossless · argon2 · chacha20</div>
+      <div class="header-actions">
+        <span class="server-pill" id="serverPill"><span class="dot"></span> сервер…</span>
+        <a class="gh-link" href="https://github.com/kalbose/veilwave" target="_blank" rel="noopener">GitHub ↗</a>
+      </div>
     </header>
 
-    <div class="cards">
-      <section class="card" aria-labelledby="cap-title">
-        <h2 id="cap-title"><span class="num">01</span> Захват</h2>
-        <p class="hint" style="margin-top:0">Микрофон → WAV 16-bit PCM на клиенте, без сторонних CDN.</p>
-        <div class="row">
-          <button id="btnRecStart" class="btn-primary" type="button">Записать</button>
-          <button id="btnRecStop" class="btn-ghost" type="button" disabled>Стоп</button>
-        </div>
-        <audio id="player" controls></audio>
-        <p id="log"></p>
-      </section>
+    <nav class="pipeline" aria-label="Этапы">
+      <button type="button" class="pipe-step active" data-step="1">① Захват</button>
+      <button type="button" class="pipe-step" data-step="2">② Завеса</button>
+      <button type="button" class="pipe-step" data-step="3">③ Снять</button>
+      <button type="button" class="pipe-step" data-step="4">④ Проверка</button>
+    </nav>
 
-      <section class="card" aria-labelledby="shroud-title">
-        <h2 id="shroud-title"><span class="num">02</span> Завеса</h2>
-        <p class="hint" style="margin-top:0">Отправка на сервер: XOR-поток + блочная перестановка — математически обратимо.</p>
-        <label for="pass1">Кодовое слово</label>
-        <input id="pass1" type="password" autocomplete="off" placeholder="ваш секрет" />
-        <label for="file1">WAV-файл</label>
-        <input id="file1" type="file" accept="audio/wav,.wav,audio/*" />
-        <div class="row">
-          <button id="btnScramble" class="btn-primary" type="button">Скрыть и скачать</button>
-        </div>
-      </section>
+    <div class="layout">
+      <div class="main-col">
+        <section class="card" id="sec-capture">
+          <h2><span class="num">01</span> Захват</h2>
+          <p class="hint">WAV 16-bit mono 44.1 kHz · горячие клавиши: <kbd>R</kbd> запись, <kbd>Esc</kbd> стоп</p>
+          <div class="wave-wrap" id="waveWrap">
+            <span class="wave-label">осциллограф</span>
+            <span class="rec-timer" id="recTimer" hidden>00:00</span>
+            <canvas id="waveCanvas"></canvas>
+          </div>
+          <div class="row">
+            <button id="btnRecStart" class="btn-record" type="button"><span class="rec-dot" id="recDot"></span> Записать</button>
+            <button id="btnRecStop" class="btn-ghost" type="button" disabled>Стоп</button>
+          </div>
+          <audio id="playerOrig" controls hidden></audio>
+        </section>
 
-      <section class="card" aria-labelledby="reveal-title">
-        <h2 id="reveal-title"><span class="num">03</span> Снять вуаль</h2>
-        <p class="hint" style="margin-top:0">Загрузите «завуалированный» WAV и тот же ключ — получите исходный PCM.</p>
-        <label for="pass2">Кодовое слово</label>
-        <input id="pass2" type="password" autocomplete="off" placeholder="тот же секрет" />
-        <label for="file2">Файл с сервера</label>
-        <input id="file2" type="file" accept="audio/wav,.wav" />
-        <div class="row">
-          <button id="btnDescramble" class="btn-ghost" type="button">Восстановить и скачать</button>
+        <section class="card" id="sec-crypto">
+          <h2><span class="num">02–03</span> Ключ</h2>
+          <label for="passKey">Кодовое слово</label>
+          <div class="key-row">
+            <input id="passKey" type="password" autocomplete="off" placeholder="минимум 12 символов для надёжности" />
+            <button type="button" class="icon-btn" id="btnTogglePass" title="Показать">👁</button>
+            <button type="button" class="icon-btn" id="btnGenPass" title="Сгенерировать">🎲</button>
+          </div>
+          <div class="strength" aria-hidden="true"><div class="strength-bar" id="strengthBar"></div></div>
+          <p class="strength-label" id="strengthLabel">сила ключа</p>
+
+          <div class="tabs" role="tablist">
+            <button type="button" class="tab active" data-tab="shroud">Завеса</button>
+            <button type="button" class="tab" data-tab="reveal">Снять вуаль</button>
+          </div>
+
+          <div class="tab-panel active" id="panel-shroud">
+            <div class="dropzone" id="dropShroud" tabindex="0">
+              <p class="dz-title">WAV → завеса</p>
+              <p class="dz-meta" id="metaShroud">перетащите или нажмите</p>
+            </div>
+            <input id="fileShroud" type="file" accept="audio/wav,.wav,audio/*" />
+            <div class="chips" id="chipsShroud"></div>
+            <div class="row">
+              <button id="btnScramble" class="btn-primary" type="button">Скрыть</button>
+              <label class="check"><input type="checkbox" id="chkPreviewShroud" checked /> слушать до скачивания</label>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="panel-reveal">
+            <div class="dropzone" id="dropReveal" tabindex="0">
+              <p class="dz-title">Завеса → оригинал</p>
+              <p class="dz-meta" id="metaReveal">veilwave-shroud.wav</p>
+            </div>
+            <input id="fileReveal" type="file" accept="audio/wav,.wav" />
+            <div class="chips" id="chipsReveal"></div>
+            <div class="row">
+              <button id="btnDescramble" class="btn-ghost" type="button">Восстановить</button>
+              <label class="check"><input type="checkbox" id="chkPreviewClear" checked /> слушать до скачивания</label>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="sec-verify">
+          <h2><span class="num">04</span> Проверка целостности</h2>
+          <p class="hint">Сравнивает SHA256 PCM оригинала и результата descramble — доказательство lossless-цикла.</p>
+          <button id="btnVerify" class="btn-primary" type="button" disabled>Проверить побитово</button>
+          <pre class="verify-out" id="verifyOut">Загрузите оригинал, создайте завесу и восстановите файл.</pre>
+        </section>
+      </div>
+
+      <aside class="preview-col">
+        <div class="card preview-card">
+          <h2>Превью</h2>
+          <div class="preview-block">
+            <span class="preview-tag orig">оригинал</span>
+            <audio id="previewOrig" controls></audio>
+          </div>
+          <div class="preview-block">
+            <span class="preview-tag shroud">завеса</span>
+            <audio id="previewShroud" controls></audio>
+          </div>
+          <div class="preview-block">
+            <span class="preview-tag clear">восстановлено</span>
+            <audio id="previewClear" controls></audio>
+          </div>
+          <div class="meta-panel" id="metaPanel">
+            <p>Выберите файл — покажем длительность и формат.</p>
+          </div>
         </div>
-      </section>
+      </aside>
     </div>
 
     <footer>
-      <strong>Veilwave</strong> · модульный движок <code style="background:rgba(255,255,255,0.06);padding:0.15rem 0.4rem;border-radius:6px">audio-cipher</code>
+      <strong>Veilwave</strong> · CLI: <code>veilwave scramble -in a.wav -out b.wav -pass "…"</code> ·
+      <a href="https://github.com/kalbose/veilwave" target="_blank" rel="noopener">GitHub</a>
     </footer>
   </div>
-
   <script src="/recorder.js" defer></script>
 </body>
 </html>

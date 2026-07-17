@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,13 +12,11 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
-	"audio-cipher/internal/audio"
 	"audio-cipher/internal/config"
-	audiocrypto "audio-cipher/internal/crypto"
+	"audio-cipher/internal/engine"
 	audioweb "audio-cipher/web"
-
-	"golang.org/x/sync/errgroup"
 )
 
 // Handler обслуживает статику и REST API.
@@ -27,14 +25,16 @@ type Handler struct {
 	web fs.FS
 }
 
-// New конструирует Handler с валидацией встроенной статики.
+// New конструирует Handler.
 func New(cfg *config.Config) (*Handler, error) {
 	return &Handler{cfg: cfg, web: audioweb.Files}, nil
 }
 
-// Register монтирует маршруты на mux.
+// Register монтирует маршруты.
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("/health", h.withMethod(http.MethodGet, h.health))
+	mux.HandleFunc("/api/info", h.withMethod(http.MethodPost, h.withMaxBytes(h.handleInfo)))
+	mux.HandleFunc("/api/verify", h.withMethod(http.MethodPost, h.withMaxBytes(h.handleVerify)))
 	mux.HandleFunc("/api/scramble", h.withMethod(http.MethodPost, h.withMaxBytes(h.handleScramble)))
 	mux.HandleFunc("/api/descramble", h.withMethod(http.MethodPost, h.withMaxBytes(h.handleDescramble)))
 	mux.HandleFunc("/api/record", h.withMethod(http.MethodPost, h.withMaxBytes(h.handleRecord)))
@@ -45,7 +45,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 func (h *Handler) withMethod(method string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != method {
-			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 			return
 		}
 		next(w, r)
@@ -59,9 +59,12 @@ func (h *Handler) withMaxBytes(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = io.WriteString(w, `{"status":"ok"}`)
+func (h *Handler) health(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status":  "ok",
+		"product": "veilwave",
+		"version": "1.1",
+	})
 }
 
 func (h *Handler) static() http.Handler {
@@ -76,28 +79,98 @@ func (h *Handler) handleDescramble(w http.ResponseWriter, r *http.Request) {
 	h.handleTransform(w, r, "descramble")
 }
 
-// handleRecord — семантический алиас для POST из браузерного рекордера (тот же контракт, что /api/scramble).
 func (h *Handler) handleRecord(w http.ResponseWriter, r *http.Request) {
 	h.handleTransform(w, r, "scramble")
 }
 
-func (h *Handler) handleTransform(w http.ResponseWriter, r *http.Request, mode string) {
-	ctx := r.Context()
-	pass, fileHeader, raw, err := h.readFormAudio(r)
+func (h *Handler) handleInfo(w http.ResponseWriter, r *http.Request) {
+	raw, err := h.readFileOnly(r)
 	if err != nil {
-		slog.Warn("bad request", "err", err)
-		http.Error(w, "invalid form: need file+wav and passphrase", http.StatusBadRequest)
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	res, err := engine.Info(raw)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, resultJSON(res))
+}
+
+func (h *Handler) handleVerify(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	if err := r.ParseMultipartForm(h.cfg.MaxBodyBytes); err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	pass := strings.TrimSpace(r.FormValue("passphrase"))
+	if pass == "" {
+		writeErr(w, http.StatusBadRequest, fmt.Errorf("missing passphrase"))
+		return
+	}
+	shroud, err := readFormFile(r, "file")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	original, err := readFormFile(r, "original")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, fmt.Errorf("missing original: %w", err))
 		return
 	}
 
-	out, err := h.pipeline(ctx, raw, pass, mode)
+	start := time.Now()
+	match, oh, rh, err := engine.VerifyRoundtrip(ctx, h.cfg, original, shroud, pass)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			writeErr(w, http.StatusRequestTimeout, err)
+			return
+		}
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+	w.Header().Set("X-Processing-Time-Ms", fmt.Sprintf("%d", time.Since(start).Milliseconds()))
+	writeJSON(w, http.StatusOK, map[string]any{
+		"match":            match,
+		"original_sha256":  oh,
+		"restored_sha256":  rh,
+		"message":          verifyMessage(match),
+	})
+}
+
+func verifyMessage(match bool) string {
+	if match {
+		return "PCM побитово совпадает с оригиналом"
+	}
+	return "PCM не совпадает — неверный ключ или повреждённый файл"
+}
+
+func (h *Handler) handleTransform(w http.ResponseWriter, r *http.Request, mode string) {
+	ctx := r.Context()
+	start := time.Now()
+	pass, fileHeader, raw, err := h.readFormAudio(r)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err)
+		return
+	}
+
+	var res *engine.Result
+	switch mode {
+	case "scramble":
+		res, err = engine.Scramble(ctx, h.cfg, raw, pass)
+	case "descramble":
+		res, err = engine.Descramble(ctx, h.cfg, raw, pass)
+	default:
+		writeErr(w, http.StatusInternalServerError, fmt.Errorf("unknown mode"))
+		return
+	}
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			http.Error(w, "canceled", http.StatusRequestTimeout)
+			writeErr(w, http.StatusRequestTimeout, err)
 			return
 		}
 		slog.Error("pipeline failed", "err", err)
-		http.Error(w, "processing failed", http.StatusInternalServerError)
+		writeErr(w, http.StatusBadRequest, err)
 		return
 	}
 
@@ -105,19 +178,21 @@ func (h *Handler) handleTransform(w http.ResponseWriter, r *http.Request, mode s
 	if name == "" || name == "." {
 		name = "audio"
 	}
-	var suffix string
+	suffix := ".out.wav"
 	switch mode {
 	case "scramble":
 		suffix = ".veilwave-shroud.wav"
 	case "descramble":
 		suffix = ".veilwave-clear.wav"
-	default:
-		suffix = ".out.wav"
 	}
 
 	w.Header().Set("Content-Type", "audio/wav")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename=%q`, name+suffix))
-	_, _ = w.Write(out)
+	w.Header().Set("X-PCM-Bytes", fmt.Sprintf("%d", res.PCMBytes))
+	w.Header().Set("X-PCM-Sha256", res.PCMSha256)
+	w.Header().Set("X-Duration-Sec", fmt.Sprintf("%.3f", res.DurationSec))
+	w.Header().Set("X-Processing-Time-Ms", fmt.Sprintf("%d", time.Since(start).Milliseconds()))
+	_, _ = w.Write(res.WAV)
 }
 
 func (h *Handler) readFormAudio(r *http.Request) (pass string, fh *multipart.FileHeader, raw []byte, err error) {
@@ -128,70 +203,56 @@ func (h *Handler) readFormAudio(r *http.Request) (pass string, fh *multipart.Fil
 	if pass == "" {
 		return "", nil, nil, fmt.Errorf("missing passphrase")
 	}
-	file, header, err := r.FormFile("file")
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("missing file: %w", err)
-	}
-	defer file.Close()
-	raw, err = io.ReadAll(file)
-	if err != nil {
-		return "", nil, nil, fmt.Errorf("read file: %w", err)
-	}
-	if len(raw) == 0 {
-		return "", nil, nil, fmt.Errorf("empty file")
-	}
-	return pass, header, raw, nil
+	raw, fh, err = readFormFileHeader(r, "file")
+	return pass, fh, raw, err
 }
 
-func (h *Handler) pipeline(ctx context.Context, raw []byte, passphrase, mode string) ([]byte, error) {
-	g, gctx := errgroup.WithContext(ctx)
-
-	var decoded *audio.WAV16
-
-	g.Go(func() error {
-		w, err := audio.DecodeWAV16(bytes.NewReader(raw))
-		if err != nil {
-			return fmt.Errorf("decode wav: %w", err)
-		}
-		decoded = w
-		return nil
-	})
-
-	if err := g.Wait(); err != nil {
-		return nil, err
+func (h *Handler) readFileOnly(r *http.Request) ([]byte, error) {
+	if err := r.ParseMultipartForm(h.cfg.MaxBodyBytes); err != nil {
+		return nil, fmt.Errorf("parse multipart: %w", err)
 	}
+	raw, _, err := readFormFileHeader(r, "file")
+	return raw, err
+}
 
-	mk, err := audiocrypto.DeriveMasterKey(passphrase, len(decoded.PCM), h.cfg.Argon2Time, h.cfg.Argon2MemoryKiB, h.cfg.Argon2Threads)
+func readFormFile(r *http.Request, field string) ([]byte, error) {
+	b, _, err := readFormFileHeader(r, field)
+	return b, err
+}
+
+func readFormFileHeader(r *http.Request, field string) ([]byte, *multipart.FileHeader, error) {
+	file, header, err := r.FormFile(field)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("missing %s: %w", field, err)
 	}
-	ks, err := audiocrypto.NewPCMKeystreamFromMasterKey(mk, len(decoded.PCM))
+	defer file.Close()
+	raw, err := io.ReadAll(file)
 	if err != nil {
-		return nil, err
+		return nil, nil, fmt.Errorf("read file: %w", err)
 	}
-
-	pcm := append([]byte(nil), decoded.PCM...)
-
-	g2, g2ctx := errgroup.WithContext(gctx)
-	g2.Go(func() error {
-		switch mode {
-		case "scramble":
-			if err := audio.ScramblePCM(g2ctx, pcm, mk, h.cfg.ProcessBlockBytes, ks); err != nil {
-				return fmt.Errorf("scramble: %w", err)
-			}
-		case "descramble":
-			if err := audio.DescramblePCM(g2ctx, pcm, mk, h.cfg.ProcessBlockBytes, ks); err != nil {
-				return fmt.Errorf("descramble: %w", err)
-			}
-		default:
-			return fmt.Errorf("unknown mode %q", mode)
-		}
-		return nil
-	})
-	if err := g2.Wait(); err != nil {
-		return nil, err
+	if len(raw) == 0 {
+		return nil, nil, fmt.Errorf("empty file")
 	}
+	return raw, header, nil
+}
 
-	decoded.PCM = pcm
-	return audio.EncodeWAV16(decoded)
+func resultJSON(res *engine.Result) map[string]any {
+	return map[string]any{
+		"channels":     res.Channels,
+		"sample_rate":  res.SampleRate,
+		"duration_sec": res.DurationSec,
+		"pcm_bytes":    res.PCMBytes,
+		"pcm_sha256":   res.PCMSha256,
+	}
+}
+
+func writeJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeErr(w http.ResponseWriter, code int, err error) {
+	slog.Warn("request error", "code", code, "err", err)
+	writeJSON(w, code, map[string]string{"error": err.Error()})
 }

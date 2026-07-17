@@ -6,11 +6,28 @@
 
 ```bash
 go mod tidy
-make dev
-# Windows без make: go run ./cmd/server  или  dev.cmd
+go run ./cmd/server          # веб-сервер
+# Windows: dev.cmd  или  bin\veilwave.exe
 ```
 
-Откройте <http://localhost:8080> (порт меняется переменной `HTTP_ADDR`).
+Откройте <http://localhost:8080>.
+
+### CLI (тот же бинарник)
+
+```bash
+go run ./cmd/server scramble  -in orig.wav -out shroud.wav -pass "секрет"
+go run ./cmd/server descramble -in shroud.wav -out clear.wav -pass "секрет"
+go run ./cmd/server verify -original orig.wav -in shroud.wav -pass "секрет"
+go run ./cmd/server info -in orig.wav
+```
+
+## Новое в UI v1.1
+
+- **Превью** оригинала / завесы / восстановленного в боковой панели
+- **Проверка целостности** (SHA256 PCM) через `/api/verify`
+- **Индикатор силы ключа** и генератор случайной фразы
+- **Таймер записи**, горячие клавиши `R` / `Esc`
+- **Метаданные WAV** (длительность, частота) через `/api/info`
 
 ## Как проверить обратимость
 
@@ -55,10 +72,11 @@ fc /b orig.wav veilwave-clear.wav
 
 ## API
 
-- `GET /health`
-- `POST /api/scramble` — `multipart/form-data`: `file`, `passphrase`
-- `POST /api/descramble` — то же
-- `POST /api/record` — алиас (запись из браузера)
+- `GET /health` — статус сервера
+- `POST /api/info` — метаданные WAV (`file`)
+- `POST /api/verify` — проверка roundtrip (`original`, `file` shroud, `passphrase`)
+- `POST /api/scramble` / `/api/descramble` — transform (`file`, `passphrase`)
+- `POST /api/record` — алиас scramble
 - `GET /api/status` — SSE-пинг
 
 ## Зависимости

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"audio-cipher/internal/cli"
 	"audio-cipher/internal/config"
 	"audio-cipher/internal/handler"
 
@@ -18,16 +19,25 @@ import (
 )
 
 func main() {
+	sub, err := cli.Run(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	if sub != "serve" {
+		return
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	if err := run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+	if err := runServer(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		slog.Error("server exited with error", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context) error {
+func runServer(ctx context.Context) error {
 	logLevel := new(slog.LevelVar)
 	logLevel.Set(slog.LevelInfo)
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: logLevel}))
