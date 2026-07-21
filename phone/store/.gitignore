@@ -1,0 +1,5 @@
+screenshots/
+*.apk
+*.aab
+!icon-512.png
+!icon-source.png

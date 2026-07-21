@@ -27,3 +27,20 @@ Thumbs.db
 # Env / secrets
 .env
 .env.*
+
+# phone / build
+phone/node_modules/
+phone/android/.gradle/
+phone/android/**/build/
+phone/android/app/keystore/
+phone/android/app/keystore.properties
+phone/*.apk
+phone/*.aab
+phone/**/*.jks
+bin/
+guess-best.wav
+guess-hit.wav
+cmd/guesspass/
+
+cmd/wasm/
+

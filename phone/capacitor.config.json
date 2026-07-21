@@ -1,0 +1,12 @@
+{
+  "appId": "ru.samara.wave",
+  "appName": "RuSamaraWave",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#071820"
+  }
+}

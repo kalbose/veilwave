@@ -62,8 +62,9 @@ func (h *Handler) withMaxBytes(next http.HandlerFunc) http.HandlerFunc {
 func (h *Handler) health(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":  "ok",
-		"product": "veilwave",
-		"version": "1.1",
+		"product": "rusamarawave",
+		"version": "2.0",
+		"format":  "rswk",
 	})
 }
 

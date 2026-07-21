@@ -2,15 +2,14 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Veilwave — обратимое lossless-скрытие звука в WAV" />
-  <meta name="theme-color" content="#05030c" />
-  <title>Veilwave</title>
-  <link rel="stylesheet" href="/style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="RuSamaraWave — офлайн голосовые заметки в формате .rswk" />
+  <meta name="theme-color" content="#071820" />
+  <title>RuSamaraWave</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div class="bg" aria-hidden="true"><div class="bg-orb a"></div><div class="bg-orb b"></div></div>
-
+  <div class="bg" aria-hidden="true"></div>
   <div id="overlay" aria-hidden="true">
     <div class="overlay-box">
       <div class="spinner"></div>
@@ -24,121 +23,99 @@
     <header>
       <div class="brand">
         <div class="mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none"><path d="M2 12c2.5-4 6-6 10-6s7.5 2 10 6c-2.5 4-6 6-10 6s-7.5-2-10-6z" stroke="rgba(255,255,255,0.45)" stroke-width="1.2"/><path d="M4 12c2-2.5 4.5-3.5 8-3.5s6 1 8 3.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 32 32" fill="none">
+            <path d="M4 18c3-6 7-9 12-9s9 3 12 9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M7 18c2.2-3.5 5-5 9-5s6.8 1.5 9 5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity=".55"/>
+          </svg>
         </div>
         <div>
-          <h1><span>Veilwave</span></h1>
-          <p class="tagline">Вуаль на волну — для чужих шум, для тебя <em>побитовый</em> возврат.</p>
+          <h1>RuSamaraWave</h1>
+          <p class="tagline">Голосовые заметки в формате <em>.rswk</em> — только на вашем устройстве.</p>
         </div>
       </div>
       <div class="header-actions">
-        <span class="server-pill" id="serverPill"><span class="dot"></span> сервер…</span>
-        <a class="gh-link" href="https://github.com/kalbose/veilwave" target="_blank" rel="noopener">GitHub ↗</a>
+        <span class="pill" id="statusPill">офлайн · на устройстве</span>
+        <a class="pill gh" href="https://github.com/kalbose/veilwave" target="_blank" rel="noopener">GitHub ↗</a>
       </div>
     </header>
 
-    <nav class="pipeline" aria-label="Этапы">
-      <button type="button" class="pipe-step active" data-step="1">① Захват</button>
-      <button type="button" class="pipe-step" data-step="2">② Завеса</button>
-      <button type="button" class="pipe-step" data-step="3">③ Снять</button>
-      <button type="button" class="pipe-step" data-step="4">④ Проверка</button>
+    <nav class="tabs" role="tablist" aria-label="Разделы">
+      <button type="button" class="tab active" data-panel="record">Запись</button>
+      <button type="button" class="tab" data-panel="hide">Скрыть</button>
+      <button type="button" class="tab" data-panel="open">Открыть</button>
     </nav>
 
-    <div class="layout">
-      <div class="main-col">
-        <section class="card" id="sec-capture">
-          <h2><span class="num">01</span> Захват</h2>
-          <p class="hint">WAV 16-bit mono 44.1 kHz · горячие клавиши: <kbd>R</kbd> запись, <kbd>Esc</kbd> стоп</p>
-          <div class="wave-wrap" id="waveWrap">
-            <span class="wave-label">осциллограф</span>
-            <span class="rec-timer" id="recTimer" hidden>00:00</span>
-            <canvas id="waveCanvas"></canvas>
-          </div>
-          <div class="row">
-            <button id="btnRecStart" class="btn-record" type="button"><span class="rec-dot" id="recDot"></span> Записать</button>
-            <button id="btnRecStop" class="btn-ghost" type="button" disabled>Стоп</button>
-          </div>
-          <audio id="playerOrig" controls hidden></audio>
-        </section>
+    <section class="panel active" id="panel-record">
+      <h2>Запись</h2>
+      <p class="hint">16-bit mono · 44.1 kHz · микрофон</p>
+      <div class="wave-wrap" id="waveWrap">
+        <span class="wave-label">волна</span>
+        <span class="rec-timer" id="recTimer" hidden>00:00</span>
+        <canvas id="waveCanvas"></canvas>
+      </div>
+      <div class="row">
+        <button id="btnRecStart" class="btn-accent" type="button"><span class="rec-dot" id="recDot"></span> Записать</button>
+        <button id="btnRecStop" class="btn-ghost" type="button" disabled>Стоп</button>
+      </div>
+      <audio id="playerRec" controls hidden></audio>
+    </section>
 
-        <section class="card" id="sec-crypto">
-          <h2><span class="num">02–03</span> Ключ</h2>
-          <label for="passKey">Кодовое слово</label>
-          <div class="key-row">
-            <input id="passKey" type="password" autocomplete="off" placeholder="минимум 12 символов для надёжности" />
-            <button type="button" class="icon-btn" id="btnTogglePass" title="Показать">👁</button>
-            <button type="button" class="icon-btn" id="btnGenPass" title="Сгенерировать">🎲</button>
-          </div>
-          <div class="strength" aria-hidden="true"><div class="strength-bar" id="strengthBar"></div></div>
-          <p class="strength-label" id="strengthLabel">сила ключа</p>
+    <section class="panel" id="panel-hide">
+      <h2>Скрыть в .rswk</h2>
+      <p class="hint">Файл сохранится в <code>Загрузки/RuSamaraWave/</code></p>
 
-          <div class="tabs" role="tablist">
-            <button type="button" class="tab active" data-tab="shroud">Завеса</button>
-            <button type="button" class="tab" data-tab="reveal">Снять вуаль</button>
-          </div>
+      <label for="passHide">Кодовое слово</label>
+      <div class="key-row">
+        <input id="passHide" type="password" autocomplete="off" placeholder="не короче 12 символов" />
+        <button type="button" class="icon-btn" id="btnToggleHide" title="Показать">👁</button>
+        <button type="button" class="icon-btn" id="btnGenPass" title="Сгенерировать">🎲</button>
+      </div>
+      <div class="strength"><div class="strength-bar" id="strengthBar"></div></div>
+      <p class="strength-label" id="strengthLabel">сила ключа</p>
 
-          <div class="tab-panel active" id="panel-shroud">
-            <div class="dropzone" id="dropShroud" tabindex="0">
-              <p class="dz-title">WAV → завеса</p>
-              <p class="dz-meta" id="metaShroud">перетащите или нажмите</p>
-            </div>
-            <input id="fileShroud" type="file" accept="audio/wav,.wav,audio/*" />
-            <div class="chips" id="chipsShroud"></div>
-            <div class="row">
-              <button id="btnScramble" class="btn-primary" type="button">Скрыть</button>
-              <label class="check"><input type="checkbox" id="chkPreviewShroud" checked /> слушать до скачивания</label>
-            </div>
-          </div>
+      <div class="dropzone" id="dropHide" tabindex="0">
+        <p class="dz-title">WAV или запись</p>
+        <p class="dz-meta" id="metaHide">нажмите, чтобы выбрать файл</p>
+      </div>
+      <input id="fileHide" type="file" accept="audio/wav,.wav,audio/*" />
+      <div class="row">
+        <button id="btnHide" class="btn-primary" type="button">Создать .rswk</button>
+      </div>
+    </section>
 
-          <div class="tab-panel" id="panel-reveal">
-            <div class="dropzone" id="dropReveal" tabindex="0">
-              <p class="dz-title">Завеса → оригинал</p>
-              <p class="dz-meta" id="metaReveal">veilwave-shroud.wav</p>
-            </div>
-            <input id="fileReveal" type="file" accept="audio/wav,.wav" />
-            <div class="chips" id="chipsReveal"></div>
-            <div class="row">
-              <button id="btnDescramble" class="btn-ghost" type="button">Восстановить</button>
-              <label class="check"><input type="checkbox" id="chkPreviewClear" checked /> слушать до скачивания</label>
-            </div>
-          </div>
-        </section>
+    <section class="panel" id="panel-open">
+      <h2>Открыть .rswk</h2>
+      <p class="hint">Неверный ключ — файл не откроется (AEAD).</p>
 
-        <section class="card" id="sec-verify">
-          <h2><span class="num">04</span> Проверка целостности</h2>
-          <p class="hint">Сравнивает SHA256 PCM оригинала и результата descramble — доказательство lossless-цикла.</p>
-          <button id="btnVerify" class="btn-primary" type="button" disabled>Проверить побитово</button>
-          <pre class="verify-out" id="verifyOut">Загрузите оригинал, создайте завесу и восстановите файл.</pre>
-        </section>
+      <label for="passOpen">Кодовое слово</label>
+      <div class="key-row">
+        <input id="passOpen" type="password" autocomplete="off" placeholder="тот же ключ, что при скрытии" />
+        <button type="button" class="icon-btn" id="btnToggleOpen" title="Показать">👁</button>
       </div>
 
-      <aside class="preview-col">
-        <div class="card preview-card">
-          <h2>Превью</h2>
-          <div class="preview-block">
-            <span class="preview-tag orig">оригинал</span>
-            <audio id="previewOrig" controls></audio>
-          </div>
-          <div class="preview-block">
-            <span class="preview-tag shroud">завеса</span>
-            <audio id="previewShroud" controls></audio>
-          </div>
-          <div class="preview-block">
-            <span class="preview-tag clear">восстановлено</span>
-            <audio id="previewClear" controls></audio>
-          </div>
-          <div class="meta-panel" id="metaPanel">
-            <p>Выберите файл — покажем длительность и формат.</p>
-          </div>
-        </div>
-      </aside>
-    </div>
+      <div class="dropzone" id="dropOpen" tabindex="0">
+        <p class="dz-title">Файл .rswk</p>
+        <p class="dz-meta" id="metaOpen">нажмите, чтобы выбрать</p>
+      </div>
+      <input id="fileOpen" type="file" accept=".rswk,application/octet-stream" />
+      <div class="row">
+        <button id="btnOpen" class="btn-primary" type="button">Открыть</button>
+        <button id="btnSaveClear" class="btn-ghost" type="button" disabled>Сохранить WAV</button>
+      </div>
+      <audio id="playerClear" controls hidden></audio>
+    </section>
 
     <footer>
-      <strong>Veilwave</strong> · CLI: <code>veilwave scramble -in a.wav -out b.wav -pass "…"</code> ·
-      <a href="https://github.com/kalbose/veilwave" target="_blank" rel="noopener">GitHub</a>
+      <p><strong>RuSamaraWave</strong> · Windows / браузер · формат RSWK · бесплатно · офлайн</p>
+      <p>Автор: <a href="https://vk.ru/kalboseof" target="_blank" rel="noopener">vk.ru/kalboseof</a></p>
+      <p class="thanks">Спасибо за хлеб:
+        <button type="button" class="copy-card" id="btnCopyCard" data-card="2204311069484773" title="Скопировать">2204&nbsp;3110&nbsp;6948&nbsp;4773</button>
+      </p>
+      <p class="privacy-link"><a href="privacy.html">Политика конфиденциальности</a></p>
     </footer>
   </div>
-  <script src="/recorder.js" defer></script>
+
+  <script src="rsw.bundle.js"></script>
+  <script src="app.js" defer></script>
 </body>
 </html>

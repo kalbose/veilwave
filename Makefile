@@ -13,7 +13,11 @@ test-race:
 	go test -race ./...
 
 build:
-	go build -o bin/audio-cipher ./cmd/server
+	go build -ldflags="-s -w" -o bin/RuSamaraWave.exe ./cmd/server
+
+.PHONY: win
+win: build
+
 
 lint:
 	go vet ./...

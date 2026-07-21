@@ -1,0 +1,30 @@
+{
+  "name": "rusamarawave-phone",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "RuSamaraWave — офлайн приватность голосовых заметок (.rswk)",
+  "scripts": {
+    "build:rsw": "node scripts/build-rsw.mjs",
+    "test:rsw": "node scripts/test-rsw.mjs",
+    "sync": "npx cap sync android",
+    "open": "npx cap open android",
+    "apk:debug": "cd android && set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr&& .\\gradlew.bat assembleDebug && copy /Y app\\build\\outputs\\apk\\debug\\app-debug.apk ..\\RuSamaraWave-debug.apk",
+    "apk:release": "cd android && set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr&& .\\gradlew.bat assembleRelease bundleRelease && copy /Y app\\build\\outputs\\apk\\release\\app-release-unsigned.apk ..\\RuSamaraWave-release-unsigned.apk 2>nul & copy /Y app\\build\\outputs\\apk\\release\\app-release.apk ..\\RuSamaraWave-release.apk 2>nul & copy /Y app\\build\\outputs\\bundle\\release\\app-release.aab ..\\RuSamaraWave-release.aab 2>nul",
+    "build": "npm run build:rsw && npx cap sync android && npm run apk:debug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/app": "^7.0.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/share": "^7.0.2",
+    "@noble/ciphers": "^1.3.0",
+    "@noble/hashes": "^1.8.0",
+    "hash-wasm": "^4.12.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.2",
+    "esbuild": "^0.25.0"
+  }
+}

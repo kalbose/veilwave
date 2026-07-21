@@ -1,89 +1,48 @@
-# Veilwave
+# RuSamaraWave
 
-**Veilwave** — веб-интерфейс и движок обратимого «укрытия» звука в WAV (Go-модуль по-прежнему называется `audio-cipher` в репозитории). Lossless, ключевое слово-управляемое преобразование PCM: XOR ChaCha20 после Argon2id и детерминированная блочная перестановка 16-битных сэмплов. Без ключа звук неузнаваем; с тем же ключом и **целым** файлом — **побитово** исходный PCM.
+Офлайн голосовые заметки в формате **`.rswk`** (Argon2id + XChaCha20-Poly1305).
 
-## Быстрый старт
+- **Windows / браузер** — этот репозиторий (`go run ./cmd/server` → http://localhost:8080)
+- **Android** — папка [`phone/`](phone/), сборка APK/AAB для RuStore
 
-```bash
-go mod tidy
-go run ./cmd/server          # веб-сервер
-# Windows: dev.cmd  или  bin\veilwave.exe
+## Windows (быстрый старт)
+
+```bat
+dev.cmd
 ```
 
-Откройте <http://localhost:8080>.
+или:
 
-### CLI (тот же бинарник)
-
-```bash
-go run ./cmd/server scramble  -in orig.wav -out shroud.wav -pass "секрет"
-go run ./cmd/server descramble -in shroud.wav -out clear.wav -pass "секрет"
-go run ./cmd/server verify -original orig.wav -in shroud.wav -pass "секрет"
-go run ./cmd/server info -in orig.wav
+```bat
+go run ./cmd/server
 ```
 
-## Новое в UI v1.1
+Откройте http://localhost:8080
 
-- **Превью** оригинала / завесы / восстановленного в боковой панели
-- **Проверка целостности** (SHA256 PCM) через `/api/verify`
-- **Индикатор силы ключа** и генератор случайной фразы
-- **Таймер записи**, горячие клавиши `R` / `Esc`
-- **Метаданные WAV** (длительность, частота) через `/api/info`
+Сборка exe:
 
-## Как проверить обратимость
-
-1. Запишите короткий WAV через UI или приложите свой `16-bit PCM` WAV.
-2. Отправьте на **Завеса** (API: `/api/scramble`) с кодовым словом → скачайте `veilwave-shroud.wav`.
-3. Загрузите его в **Снять вуаль** (`/api/descramble`) с тем же словом → `veilwave-clear.wav`.
-4. Сравните исходный и восстановленный PCM, например:
-
-```bash
-fc /b orig.wav veilwave-clear.wav
+```bat
+build-win.cmd
 ```
 
-Ожидается отсутствие различий, если исходный файл не менялся сторонними редакторами и версия движка та же.
+Появится `bin\RuSamaraWave.exe`.
 
-## Почему это обратимо
+## Формат RSWK
 
-- **XOR** с фиксированным потоком самообратим: `M = (M ⊕ K) ⊕ K`.
-- **Перестановка** сэмплов — биекция на множестве позиций внутри каждого блока; при расшифровке применяется обратная перестановка.
-- Композиция `C = P(XOR(M,K))` раскрывается как `M = XOR(P⁻¹(C), K)` **без потерь** (нет клиппинга и т.п.).
+Файлы: `RuSamaraWaveKalimov_ГГГГ-ММ-ДД_ЧЧ-ММ-СС.rswk`  
+Спека: [`phone/store/RSWK-SPEC.md`](phone/store/RSWK-SPEC.md)
 
-## Формат аудио
+## Legacy CLI (WAV scramble)
 
-- **RIFF/WAVE**, `PCM` (`audioFormat = 1`), **16 bit**, mono/stereo (interleaved `LR…`).
-- Частота и число каналов берутся из `fmt`; необязательные чанки при пересборке **не копируются**.
+Старый lossless-пайплайн WAV по-прежнему в CLI:
 
-## Безопасность ключа
+```bat
+go run ./cmd/server scramble  -in a.wav -out b.wav -pass "…"
+go run ./cmd/server descramble -in b.wav -out c.wav -pass "…"
+```
 
-- Пароль не логируется. Argon2id усложняет перебор; ChaCha20 формирует псевдослучайный поток.
-- Это **не** полная защита носителя: имея файл и пароль, любой восстановит звук.
-- Поток XOR привязан к длине PCM: изменение `data` ломает выравнивание ключа.
+UI работает на **RSWK**, не на старом shroud WAV.
 
-## Конфигурация (ENV)
+## Автор
 
-| Переменная | Смысл | По умолчанию |
-|-----------|-------|--------------|
-| `HTTP_ADDR` | адрес | `:8080` |
-| `MAX_BODY_BYTES` | лимит тела | `134217728` |
-| `PROCESS_BLOCK_BYTES` | размер блока (чётный) | `65536` |
-| `ARGON2_TIME` | итерации | `2` |
-| `ARGON2_MEMORY_KIB` | память KiB | `65536` |
-| `ARGON2_THREADS` | потоки | `4` |
-
-## API
-
-- `GET /health` — статус сервера
-- `POST /api/info` — метаданные WAV (`file`)
-- `POST /api/verify` — проверка roundtrip (`original`, `file` shroud, `passphrase`)
-- `POST /api/scramble` / `/api/descramble` — transform (`file`, `passphrase`)
-- `POST /api/record` — алиас scramble
-- `GET /api/status` — SSE-пинг
-
-## Зависимости
-
-- `golang.org/x/crypto`
-- `golang.org/x/sync`
-
-## Примечание по `embed`
-
-Статика лежит в `web/` вместе с `web/embed.go`: Go не позволяет `..` в директивах `//go:embed`, поэтому FS собирается из той же папки, что и HTML/JS.
+https://vk.ru/kalboseof
